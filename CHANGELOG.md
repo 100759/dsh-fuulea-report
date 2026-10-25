@@ -1,5 +1,10 @@
 # 更新日志
 
+## 1.4.1
+
+- 修复随包自测脚本：`scripts/client-smoke.mjs` 的 `client.js` 路径按仓库根解析；
+  缺少 `sample-model.json` 时打印清晰提示并退出，不再抛 ENOENT。
+
 ## 1.4.0
 
 - 一键更新后不再残留红点：版本比较改为「GitHub 最新版 vs 磁盘上已装的版本」，

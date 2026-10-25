@@ -1,6 +1,6 @@
 {
   "name": "dsh-fuulea-report",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "type": "module",
   "description": "辅立码课（智慧教学云）教学数据报告工作台：学校绑定/切换、免重复登录，从学校站点拉取管理看板数据并生成详细报告（正式版 / 简报版 / 交互版），支持检查更新与一键升级。",
   "keywords": [
