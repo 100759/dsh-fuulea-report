@@ -63,7 +63,7 @@ export function apply(ctx, rawConfig) {
   const versionChecker = createVersionChecker({
     repo: config.repository || DEFAULT_REPO,
     currentVersion: () => VERSION,
-    installSource: () => detectInstallSource(resolveProfileDir(), PACKAGE_NAME),
+    installSource: () => detectInstallSource(resolveProfileDir(PACKAGE_DIR), PACKAGE_NAME),
     enabled: config.checkUpdates !== false,
   })
 
@@ -251,7 +251,7 @@ const ROUTES = {
     const repo = info.repo || state.config.repository || DEFAULT_REPO
     state.updating = (async () => {
       const result = await runGithubUpdate({
-        profileDir: resolveProfileDir(),
+        profileDir: resolveProfileDir(PACKAGE_DIR),
         repo,
         packageName: PACKAGE_NAME,
       })
