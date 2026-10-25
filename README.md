@@ -182,11 +182,19 @@ node scripts/render-test.mjs          # 正式版渲染 → out/report.md + out/
 node scripts/verify-all.mjs           # 三版全量验收（语法 / 渲染 / 简报 PDF / 交互版浏览器渲染）
 ```
 
-`verify-all.mjs` 覆盖 32 项检查：全部源文件 `node --check`；正式版 md/html/docx 产出与「百分比一律
+`verify-all.mjs` 覆盖 34 项检查：全部源文件 `node --check`；正式版 md/html/docx 产出与「百分比一律
 1 位小数」；简报 docx 合法性与「无 NaN/undefined」；简报 HTML 覆盖三个年级且含「提升与建议」；
 简报 PDF 用 LibreOffice 转出后校验页数（3 届 ≤6 页）与关键文本；交互版 HTML 无外部资源、内联数据可
 解析、内联脚本可 `--check`、无头 Chrome 渲染出全部 SVG 图表且教师散点/排行非空态、各宽度无重叠与
 越界。
+
+> 仓库**不包含** `sample-model.json`（真实学校看板数据）。渲染类检查需要它，先在本机生成：
+
+```bash
+node scripts/test-data.mjs lyyz 2026-10-08 2026-10-21   # 用本机已保存的凭据拉一次真实数据
+```
+
+缺少该文件时，`verify-all.mjs` 只跑语法与结构检查，并打印上面这行提示后正常退出。
 
 ## 报告口径（写进报告附录，便于复核）
 
