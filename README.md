@@ -2,7 +2,7 @@
 
 DeepSeek Harness 工作台插件：从**辅立码课 / 智慧教学云**学校站点拉取「管理看板」数据，一键生成三届
 （2024/2025/2026 级）教学数据报告。支持任意学校子域名；账号只在本机保存一次，之后打开工作台
-自动登录，并可在已绑定的多所学校之间切换。
+自动登录，并可在已绑定的多所学校之间切换。**打开页面不会自动联网取数**，点「获取数据」才拉取。
 
 - 仓库：<https://github.com/100759/dsh-fuulea-report>
 - 安装：`dsh plugin --profile <你的 profile> add github:100759/dsh-fuulea-report`（或在插件管理里填这个 git 地址）
@@ -37,8 +37,11 @@ dsh plugin --profile desktop add github:100759/dsh-fuulea-report
 
 - 工作台左侧新增「教学数据报告」入口，点击进入整页工作台。
 - **学校绑定与切换**：首次填写学校子域名 + 账号密码（或使用本机已保存凭据），取数成功后账号写入
-  本机绑定存储；之后打开页面自动登录并自动取数，不再需要输入账号密码。
-  - 下拉框列出所有已绑定学校，可一键切换（切换后自动取数）；
+  本机绑定存储；之后打开页面自动登录，不再需要输入账号密码。
+  - **取数时机**：默认打开页面**不自动拉取**，只回填上次的学校与统计区间，点「获取数据」才联网取数；
+    工具栏的「打开时自动拉取」勾选框可临时改回自动（勾选后打开页面、切换学校都会直接取数），
+    也可在 `cordis.patch.yml` 里设 `autoFetch: true` 固定为自动。
+  - 下拉框列出所有已绑定学校，可一键切换（默认切换后只提示点「获取数据」；开启自动拉取时切换即取数）；
   - 「＋ 绑定其他学校…」新增绑定；「更换账号」更新账号密码；「解除绑定」删除某所学校的本机凭据。
 - 统计区间快捷选择（近 7 / 14 / 30 天）与自定义起止日期。
 - 页面展示：三届合计概览、分年级指标卡、学科统计表、教师统计表、自学数据表。
@@ -120,6 +123,7 @@ murmurhash3_x64_128（见 `lib/murmur3.js`、`lib/api.js`）。
 | `pdfTimeoutMs` | `45000` | PDF 打印超时 |
 | `repository` | `100759/dsh-fuulea-report` | 检查更新所用的 GitHub 仓库（`owner/repo`） |
 | `checkUpdates` | `true` | 是否联网检查新版本；`false` 则只显示当前版本、不请求 GitHub |
+| `autoFetch` | `false` | 打开页面 / 切换学校时是否自动拉取数据；`false` 时只在点「获取数据」时联网 |
 
 凭据优先级：本次页面填写的账号密码 > 本机绑定 > 兼容凭据文件。
 
@@ -134,7 +138,7 @@ murmurhash3_x64_128（见 `lib/murmur3.js`、`lib/api.js`）。
 
 | 方法 / 路径 | 说明 |
 | --- | --- |
-| `GET  /fuulea-report/api/defaults` | 默认学校/日期/输出目录/Chrome 可用性 + 已绑定学校列表（不含密码） |
+| `GET  /fuulea-report/api/defaults` | 默认学校/日期/输出目录/Chrome 可用性 + 已绑定学校列表（不含密码）+ `autoFetch` |
 | `POST /fuulea-report/api/bind` | 验证账号密码并保存绑定（`school`、`username`、`password`） |
 | `POST /fuulea-report/api/unbind` | 解除某所学校的绑定（`school`） |
 | `POST /fuulea-report/api/snapshot` | 取数，返回报告模型（缓存 10 分钟）；带账号密码成功时自动绑定 |

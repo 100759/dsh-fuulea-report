@@ -395,6 +395,9 @@ window.__ModuleLoader__.load({
       '.flr-domain-input{width:110px;min-width:0;height:32px;padding:0 2px;border:0;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;outline:none}' +
       '.flr-domain-input::placeholder{color:var(--dsw-alias-label-secondary);opacity:.72}' +
       '.flr-spacer{flex:1 1 auto}' +
+      '.flr-check{display:inline-flex;align-items:center;gap:6px;height:34px;font-size:12px;line-height:20px;color:var(--dsw-alias-label-secondary);cursor:pointer;white-space:nowrap;user-select:none}' +
+      '.flr-check input{width:14px;height:14px;margin:0;accent-color:var(--dsw-alias-brand-primary);cursor:pointer}' +
+      '.flr-check input:disabled{cursor:not-allowed}' +
       '.flr-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-left:auto}' +
       '.flr-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 16px;border:1px solid transparent;border-radius:9px;font:inherit;font-size:13px;line-height:1;white-space:nowrap;cursor:pointer;text-decoration:none;transition:opacity .15s,background-color .15s,border-color .15s;color:var(--dsw-alias-label-primary)}' +
       '.flr-btn:disabled{opacity:.55;cursor:not-allowed}' +
@@ -824,6 +827,7 @@ window.__ModuleLoader__.load({
             ? '选择统计区间后点击「获取数据」，即可查看管理看板中的教学数据；也可以直接生成报告。'
             : '选择已绑定的学校，或填写学校子域名与一次账号密码。取数成功后账号会保存在本机，下次打开工作台无需再输入。',
         ),
+        h('p', { className: 'flr-empty-text' }, '打开页面不会自动联网取数，需要点击「获取数据」才拉取。'),
         h('p', { className: 'flr-empty-text' }, '数据只读拉取，不会修改学校站点上的任何内容。'),
       )
     }
@@ -1471,6 +1475,9 @@ window.__ModuleLoader__.load({
       const [version, setVersion] = useState(null)
       const [versionOpen, setVersionOpen] = useState(false)
       const [versionStatus, setVersionStatus] = useState({ checking: false, busy: false, message: '' })
+      // 打开页面 / 切换学校时是否自动拉取。默认关：只回填默认学校与区间，
+      // 等用户点「获取数据」再联网取数（Host 配置 autoFetch=true 时默认打开）。
+      const [autoFetch, setAutoFetch] = useState(false)
 
       const mountedRef = useRef(true)
       const busyRef = useRef('')
@@ -1606,8 +1613,9 @@ window.__ModuleLoader__.load({
         }
       }
 
-      // 读取 Host 默认参数（已绑定学校 / 日期 / 凭据文件 / Chrome 可用性），
-      // 已绑定学校时直接自动拉取数据：打开工作台即可看到结果，无需再输入账号密码。
+      // 读取 Host 默认参数（已绑定学校 / 日期 / 凭据文件 / Chrome 可用性）。
+      // 默认只回填学校与区间，不自动取数：由用户点「获取数据」再拉，
+      // 避免每次打开工作台都联网请求一次看板（Host 配置 autoFetch=true 可恢复自动取数）。
       useEffect(function () {
         let alive = true
         const controller = makeAbortController()
@@ -1625,14 +1633,16 @@ window.__ModuleLoader__.load({
             const school = lastSchool || (defaults.school || 'lyyz')
             const from = isIsoDate(defaults.from) ? defaults.from : INITIAL_WINDOW.from
             const to = isIsoDate(defaults.to) ? defaults.to : INITIAL_WINDOW.to
+            const allowAuto = defaults.autoFetch === true
             setBoot({ loading: false, defaults: defaults, version: (payload && payload.version) || '' })
             applySchools(list)
             setForm({ school: school, from: from, to: to })
+            setAutoFetch(allowAuto)
             loadHistory()
             // 版本检查与取数并行：不阻塞主流程，失败也只在版本面板里提示。
             loadVersion(false)
-            if (lastSchool) {
-              // 已绑定：自动取数（失败时只在页面上提示，不阻塞其他操作）
+            if (allowAuto && lastSchool) {
+              // 已绑定且允许自动取数：直接拉一次（失败时只在页面上提示，不阻塞其他操作）
               loadSnapshot({ school: lastSchool, from: from, to: to, useCreds: false })
             }
           })
@@ -2002,7 +2012,19 @@ window.__ModuleLoader__.load({
         setForm(function (prev) {
           return Object.assign({}, prev, { school: value })
         })
-        if (binding) loadSnapshot({ school: value, from: form.from, to: form.to, useCreds: false })
+        // 切到另一所学校：先清掉上一所学校的数据，避免旧数据挂在新学校名下。
+        if (snapshot && String((snapshot.meta && snapshot.meta.schoolAlias) || '') !== value) {
+          abortController(snapshotAbortRef.current)
+          setSnapshot(null)
+          setReport(null)
+          setActiveGradeId(null)
+        }
+        // 只有显式开启「自动拉取」时，切换学校后才直接取数；默认等用户点「获取数据」。
+        if (binding && autoFetch) {
+          loadSnapshot({ school: value, from: form.from, to: form.to, useCreds: false })
+        } else if (binding) {
+          setNotice('已切换到「' + (binding.siteTitle || binding.alias) + '」，点「获取数据」拉取该学校的数据。')
+        }
       }
 
       function applyPreset(days) {
@@ -2389,6 +2411,24 @@ window.__ModuleLoader__.load({
                       setField('to', event.target.value)
                     },
                   }),
+                ),
+                h(
+                  'label',
+                  {
+                    className: 'flr-check',
+                    htmlFor: 'flr-autofetch',
+                    title: '勾选后，打开工作台或切换学校会立即拉取数据；不勾选则只在点「获取数据」时联网。',
+                  },
+                  h('input', {
+                    id: 'flr-autofetch',
+                    type: 'checkbox',
+                    checked: autoFetch,
+                    disabled: busy !== '',
+                    onChange: function (event) {
+                      setAutoFetch(Boolean(event.target.checked))
+                    },
+                  }),
+                  '打开时自动拉取',
                 ),
                 h(
                   'div',

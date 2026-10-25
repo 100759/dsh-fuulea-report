@@ -152,6 +152,12 @@ function findButton(node, text) {
   return findAll(node, (item) => item.type === 'button' && textOf(item).includes(text))
 }
 
+/** 「打开时自动拉取」勾选框（找不到返回 null）。 */
+function autoFetchBox(node) {
+  const boxes = findAll(node, (item) => item.type === 'input' && item.props.id === 'flr-autofetch')
+  return boxes.length ? boxes[0] : null
+}
+
 // ---------------------------------------------------------------- 环境替身
 
 const response = (payload) => ({
@@ -217,6 +223,8 @@ async function fakeFetch(url, init) {
         bindingsFile: '/tmp/bindings.json',
         bindings: [binding],
         lastSchool: 'lyyz',
+        // 默认不自动拉取：页面只回填学校与区间，等用户点「获取数据」。
+        autoFetch: false,
       },
     })
   }
@@ -364,22 +372,33 @@ let tree
 try {
   tree = await renderUntilStable()
 } catch (err) {
-  check('首次渲染（自动取数）', false, err && err.message)
+  check('首次渲染', false, err && err.message)
   process.exit(1)
 }
 
 let pageText = textOf(tree)
 check('渲染标题与工具栏', pageText.includes('教学数据报告') && pageText.includes('辅助') === false && pageText.includes('获取数据') && pageText.includes('生成正式版'))
 check('已绑定学校展示', pageText.includes('福建省龙岩第一中学') && pageText.includes('lyy***n') && pageText.includes('已绑定'))
-check('自动取数（无需再输入账号密码）', calls.snapshot === 1, 'snapshot 调用 ' + calls.snapshot + ' 次')
+check('打开页面不自动取数（默认手动）', calls.snapshot === 0, 'snapshot 调用 ' + calls.snapshot + ' 次')
+check('空状态提示需点击获取数据', pageText.includes('打开页面不会自动联网取数'))
+check('「打开时自动拉取」开关存在且默认关闭', autoFetchBox(tree) !== null && autoFetchBox(tree).props.checked === false)
 check('版本检查发出（红点数据来源）', calls.updateCheck >= 1, 'update-check 调用 ' + calls.updateCheck + ' 次')
 check('版本徽标显示新版本红点', pageText.includes('v1.3.0') && pageText.includes('可更新'))
 check('升级面板渲染（立即更新 / 检查更新）', pageText.includes('有新版本可用：v1.4.0') && pageText.includes('立即更新') && pageText.includes('检查更新'))
-check('三届合计与年级 Tab 渲染', pageText.includes('三届合计') && pageText.includes('2024级') && pageText.includes('2025级') && pageText.includes('2026级'))
-check('学科/教师/自学表格渲染', pageText.includes('学科统计') && pageText.includes('教师统计') && pageText.includes('自学数据'))
 check('拉取默认值与历史报告', calls.defaults === 1 && calls.reports >= 1)
 check('历史报告区块渲染', pageText.includes('历史报告') && pageText.includes('打开 PDF'))
 check('绑定时长提示（本机保存账号）', pageText.includes('账号只保存在本机'))
+
+// ---- 手动点「获取数据」：默认路径
+const toolbarForm = findByType(tree, 'form')[0]
+check('工具栏表单存在（获取数据走 submit）', !!toolbarForm)
+toolbarForm.props.onSubmit({ preventDefault() {} })
+await renderUntilStable()
+tree = treeRef.current
+pageText = textOf(tree)
+check('点「获取数据」后取数（snapshot 调用 1 次）', calls.snapshot === 1, 'snapshot 调用 ' + calls.snapshot + ' 次')
+check('三届合计与年级 Tab 渲染', pageText.includes('三届合计') && pageText.includes('2024级') && pageText.includes('2025级') && pageText.includes('2026级'))
+check('学科/教师/自学表格渲染', pageText.includes('学科统计') && pageText.includes('教师统计') && pageText.includes('自学数据'))
 
 // ---- 生成报告（正式版 / 简报 / 交互版三颗；主路径仍为「生成正式版」）
 const reportButtons = findButton(tree, '生成正式版')
@@ -420,13 +439,27 @@ tree = treeRef.current
 pageText = textOf(tree)
 check('进入新增学校模式', pageText.includes('新学校子域名') && pageText.includes('绑定并登录') && pageText.includes('账号'))
 
-// ---- 切回已绑定学校
+// ---- 切回已绑定学校（默认不自动取数，只提示点「获取数据」）
 const selectsAgain = findByType(treeRef.current, 'select')
 selectsAgain[0].props.onChange({ target: { value: 'lyyz' } })
 await renderUntilStable()
 tree = treeRef.current
-check('切回已绑定学校后再次自动取数', calls.snapshot === 2 && textOf(tree).includes('已绑定'))
+check('切回已绑定学校不自动取数（仍为 1 次）', calls.snapshot === 1, 'snapshot 调用 ' + calls.snapshot + ' 次')
+check('切回后提示需点「获取数据」', textOf(tree).includes('点「获取数据」拉取该学校的数据'))
 check('切回后已退出新增模式', !textOf(tree).includes('新学校子域名'))
+
+// ---- 打开「打开时自动拉取」开关后，切换学校会直接取数
+const box = autoFetchBox(tree)
+check('自动拉取开关存在', box !== null)
+box.props.onChange({ target: { checked: true } })
+await renderUntilStable()
+tree = treeRef.current
+check('开关可勾选', autoFetchBox(tree) !== null && autoFetchBox(tree).props.checked === true)
+const selectsAuto = findByType(treeRef.current, 'select')
+selectsAuto[0].props.onChange({ target: { value: 'lyyz' } })
+await renderUntilStable()
+tree = treeRef.current
+check('开启后切换学校自动取数', calls.snapshot === 2, 'snapshot 调用 ' + calls.snapshot + ' 次')
 
 // ---- 解除绑定
 const unbindButtons = findAll(tree, (item) => item.type === 'button' && textOf(item) === '解除绑定')

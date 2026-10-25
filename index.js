@@ -50,6 +50,9 @@ const DEFAULT_CONFIG = {
   // checkUpdates=false 可完全关闭联网检查（内网环境用）。
   repository: DEFAULT_REPO,
   checkUpdates: true,
+  // 打开页面 / 切换学校时是否自动拉取数据。默认 false：只填好默认学校与区间，
+  // 等用户点「获取数据」再取数，避免一进页面就联网拉一次看板。
+  autoFetch: false,
 }
 
 export function apply(ctx, rawConfig) {
@@ -143,6 +146,8 @@ const ROUTES = {
         bindingsFile: state.bindings.file,
         bindings: list,
         lastSchool,
+        // 是否允许页面打开时自动取数（默认 false，页面据此决定要不要自动拉取）。
+        autoFetch: state.config.autoFetch === true,
       },
     }
   },

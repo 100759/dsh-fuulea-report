@@ -137,6 +137,8 @@ const schoolTitle = { value: '' }
   const defaults = await call('GET', 'defaults')
   check('GET /defaults', defaults.status === 200 && defaults.json.ok === true)
   check('默认参数包含绑定信息', Array.isArray(defaults.json.defaults.bindings) && defaults.json.defaults.bindingsFile === bindingsFile)
+  // 默认不自动取数：页面据此决定打开时要不要拉数据。
+  check('defaults.autoFetch 默认为 false', defaults.json.defaults.autoFetch === false, String(defaults.json.defaults.autoFetch))
 }
 
 {
