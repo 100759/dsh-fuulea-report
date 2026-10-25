@@ -24,11 +24,12 @@ dsh plugin --profile desktop add github:100759/dsh-fuulea-report
 
 ## 版本与更新
 
-- 页面右上角显示当前版本（如 `v1.3.0`）；Host 每 10 分钟最多查一次 GitHub 上的最新版本。
+- 页面右上角显示当前版本（如 `v1.4.0`）；Host 每 10 分钟最多查一次 GitHub 上的最新版本。
 - **有新版本时**：徽标变成红色并带一个跳动的红点，下方自动展开一条升级提示，含
   「立即更新 / 检查更新 / 查看更新说明」。
 - 点「立即更新」会在本机 profile 里执行 `pnpm add github:100759/dsh-fuulea-report`
-  （即重新拉到最新提交），完成后提示**重启 DeepSeek Harness** 让新版本生效。
+  （即重新拉到最新提交），完成后提示**重启 DeepSeek Harness** 让新版本生效；
+  重启前版本面板会显示「已更新到 vX，重启 Harness 后生效」，红点同时消失。
 - 关闭联网检查：在 `cordis.patch.yml` 的 config 里加 `checkUpdates: false`（内网或合规环境）；
   换仓库地址用 `repository: owner/repo`。
 
