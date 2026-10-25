@@ -83,14 +83,14 @@ murmurhash3_x64_128（见 `lib/murmur3.js`、`lib/api.js`）。
 ```json
 {
   "version": 2,
-  "lastSchool": "lyyz",
+  "lastSchool": "demo",
   "lastRange": { "from": "2026-10-08", "to": "2026-10-21" },
   "schools": {
-    "lyyz": {
-      "alias": "lyyz",
-      "baseUrl": "https://lyyz.fuulea.com",
-      "siteTitle": "福建省龙岩第一中学",
-      "username": "lyyzadmin",
+    "demo": {
+      "alias": "demo",
+      "baseUrl": "https://demo.fuulea.com",
+      "siteTitle": "示例中学",
+      "username": "demo-admin",
       "password": "……",
       "token": "……",
       "tokenExpiresAt": 1790000000000,
@@ -102,7 +102,7 @@ murmurhash3_x64_128（见 `lib/murmur3.js`、`lib/api.js`）。
 ```
 
 - 密码为**明文本机保存**（与既有「技能包凭据文件」做法一致），只写本机、不写日志、不上传；
-  页面与接口只回显账号脱敏值（如 `lyy***n`），不回传密码。
+  页面与接口只回显账号脱敏值（如 `de*****n`），不回传密码。
 - 令牌未过期（>2 分钟）且保存了登录用户信息时直接复用令牌，否则自动用保存的密码重新登录。
 
 ## 配置（`cordis.patch.yml` 的 config，均可省略）
@@ -127,7 +127,7 @@ murmurhash3_x64_128（见 `lib/murmur3.js`、`lib/api.js`）。
 插件还注册了一个只读工具 `fuulea_teaching_report`：`action=preview` 取数返回三届概览，
 `action=generate` 生成报告文件；`mode` 选择版本（`full` 正式版 / `brief` 简报版 /
 `interactive` 交互版，默认 `full`）。与页面共用同一套 Host 逻辑（含本机绑定），方便在对话里直接说
-「帮我生成龙岩一中 10 月 8 日到 21 日的报告」「给我一份这周的简报」「生成交互版数据报告」。
+「帮我生成 demo 学校 10 月 8 日到 21 日的报告」「给我一份这周的简报」「生成交互版数据报告」。
 
 ## Host 接口（本机同源）
 
