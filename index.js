@@ -63,6 +63,12 @@ export function apply(ctx, rawConfig) {
   const versionChecker = createVersionChecker({
     repo: config.repository || DEFAULT_REPO,
     currentVersion: () => VERSION,
+    // 磁盘上已装版本（更新后立刻变化，而当前的 VERSION 要重启才会变）。
+    installedVersion: () => {
+      const profileDir = resolveProfileDir(PACKAGE_DIR)
+      const installedPkg = profileDir ? path.join(profileDir, 'node_modules', PACKAGE_NAME) : ''
+      return (installedPkg && readLocalVersion(installedPkg)) || VERSION
+    },
     installSource: () => detectInstallSource(resolveProfileDir(PACKAGE_DIR), PACKAGE_NAME),
     enabled: config.checkUpdates !== false,
   })
@@ -217,11 +223,13 @@ const ROUTES = {
     const info = await state.versionChecker.check(force)
     return {
       ok: true,
-      version: VERSION,
+      version: info.installed || VERSION,
+      runningVersion: VERSION,
       repo: info.repo,
       repoUrl: info.repoUrl,
       latest: info.latest,
       updateAvailable: info.updateAvailable,
+      restartPending: Boolean(info.restartPending),
       source: info.source,
       spec: info.spec,
       disabled: info.disabled,

@@ -598,6 +598,7 @@ window.__ModuleLoader__.load({
         unknown: '安装方式未知',
       }[info.source] || '安装方式未知'
       const canUpdate = hasNew && info.source === 'github' && !status.busy
+      const restartPending = Boolean(info.restartPending)
       const metaParts = []
       metaParts.push('当前 ' + ((info.current || '—') + ''))
       if (info.latest) metaParts.push('最新 ' + info.latest)
@@ -614,9 +615,20 @@ window.__ModuleLoader__.load({
             'p',
             { className: 'flr-update-title' },
             hasNew ? h('span', { className: 'flr-version-dot', 'aria-hidden': 'true' }) : null,
-            hasNew ? '有新版本可用：v' + info.latest : '已是最新版本',
+            restartPending
+              ? '已更新到 v' + (info.current || '') + '，重启 Harness 后生效'
+              : hasNew
+                ? '有新版本可用：v' + info.latest
+                : '已是最新版本',
           ),
           h('p', { className: 'flr-update-meta' }, metaParts.join(' · ')),
+          restartPending
+            ? h(
+                'p',
+                { className: 'flr-update-meta' },
+                '新版本已装好，正在运行的仍是 v' + (info.running || '旧版本') + '；重启 DeepSeek Harness 即切换。',
+              )
+            : null,
           checkError ? h('p', { className: 'flr-update-meta' }, '检查更新失败：' + checkError) : null,
           status.message ? h('p', { className: 'flr-update-meta' }, status.message) : null,
         ),
@@ -1531,8 +1543,10 @@ window.__ModuleLoader__.load({
           if (!mountedRef.current) return null
           const info = {
             current: payload.version || '',
+            running: payload.runningVersion || '',
             latest: payload.latest || '',
             updateAvailable: Boolean(payload.updateAvailable),
+            restartPending: Boolean(payload.restartPending),
             source: payload.source || 'unknown',
             spec: payload.spec || '',
             repo: payload.repo || '',

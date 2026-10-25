@@ -10,14 +10,8 @@ import vm from 'node:vm'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const clientPath = path.join(root, 'client.js')
-const sampleFile = path.join(root, 'sample-model.json')
-if (!fs.existsSync(sampleFile)) {
-  console.error('缺少 sample-model.json：仓库不随附真实学校数据。')
-  console.error('请先运行：node scripts/test-data.mjs lyyz 2026-10-08 2026-10-21')
-  process.exit(1)
-}
-const sample = JSON.parse(fs.readFileSync(sampleFile, 'utf8'))
+const clientPath = path.join(root, 'fuulea-report', 'client.js')
+const sample = JSON.parse(fs.readFileSync(path.join(root, 'sample-model.json'), 'utf8'))
 
 let failures = 0
 function check(label, ok, extra = '') {
@@ -227,8 +221,10 @@ async function fakeFetch(url, init) {
       version: '1.3.0',
       repo: '100759/dsh-fuulea-report',
       repoUrl: 'https://github.com/100759/dsh-fuulea-report',
+      runningVersion: '1.3.0',
       latest: '1.4.0',
       updateAvailable: true,
+      restartPending: false,
       source: 'github',
       spec: 'github:100759/dsh-fuulea-report',
       disabled: false,

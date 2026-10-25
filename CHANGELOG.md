@@ -1,5 +1,12 @@
 # 更新日志
 
+## 1.4.0
+
+- 一键更新后不再残留红点：版本比较改为「GitHub 最新版 vs 磁盘上已装的版本」，
+  并新增 `restartPending` —— 已装好新版本但进程还跑着旧代码时，版本面板提示
+  「已更新到 vX，重启 Harness 后生效」，红点消失。
+- `GET /update-check` 新增 `runningVersion`（当前进程加载的版本）。
+
 ## 1.3.3
 
 - 改进：检查更新优先走 GitHub contents API（实时），失败再退回 `raw.githubusercontent.com`。
