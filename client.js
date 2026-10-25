@@ -1438,7 +1438,7 @@ window.__ModuleLoader__.load({
     // ---------------------------------------------------------------- 页面
 
     function ReportPage() {
-      const [boot, setBoot] = useState({ loading: true, defaults: null })
+      const [boot, setBoot] = useState({ loading: true, defaults: null, version: '' })
       const [schools, setSchools] = useState([])
       const [form, setForm] = useState({
         school: '',
@@ -1597,7 +1597,7 @@ window.__ModuleLoader__.load({
       useEffect(function () {
         let alive = true
         const controller = makeAbortController()
-        setBoot({ loading: true, defaults: null })
+        setBoot({ loading: true, defaults: null, version: '' })
         requestJson('/defaults', { method: 'GET' }, controller)
           .then(function (payload) {
             if (!alive || !mountedRef.current) return
@@ -1611,7 +1611,7 @@ window.__ModuleLoader__.load({
             const school = lastSchool || (defaults.school || 'lyyz')
             const from = isIsoDate(defaults.from) ? defaults.from : INITIAL_WINDOW.from
             const to = isIsoDate(defaults.to) ? defaults.to : INITIAL_WINDOW.to
-            setBoot({ loading: false, defaults: defaults })
+            setBoot({ loading: false, defaults: defaults, version: (payload && payload.version) || '' })
             applySchools(list)
             setForm({ school: school, from: from, to: to })
             loadHistory()
@@ -1624,7 +1624,7 @@ window.__ModuleLoader__.load({
           })
           .catch(function (err) {
             if (!alive || !mountedRef.current || isAbortError(err)) return
-            setBoot({ loading: false, defaults: null })
+            setBoot({ loading: false, defaults: null, version: '' })
             setNotice('未能读取本机默认参数（' + messageOf(err) + '），请手动填写学校与日期后重试。')
           })
         return function () {
@@ -2141,7 +2141,7 @@ window.__ModuleLoader__.load({
                 schools.length ? h('span', { className: 'flr-chip' }, '已绑定 ' + schools.length + ' 所学校') : null,
                 h(VersionBadge, {
                   info: version,
-                  fallbackVersion: defaults.version || '',
+                  fallbackVersion: boot.version || '',
                   open: versionOpen,
                   onToggle: function () {
                     setVersionOpen(function (prev) {
