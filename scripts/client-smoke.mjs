@@ -10,7 +10,7 @@ import vm from 'node:vm'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const clientPath = path.join(root, 'fuulea-report', 'client.js')
+const clientPath = path.join(root, 'client.js')
 const sampleFile = path.join(root, 'sample-model.json')
 if (!fs.existsSync(sampleFile)) {
   console.error('缺少 sample-model.json：仓库不随附真实学校数据。')
