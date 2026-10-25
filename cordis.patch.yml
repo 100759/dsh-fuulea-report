@@ -1,0 +1,23 @@
+# 辅立码课教学数据报告（dsh-fuulea-report）
+#
+# 在「工作台」左侧面板列表里新增一个「教学数据报告」入口；点击后可在页面里
+# 选择/切换学校、统计区间，拉取管理看板数据并生成 Markdown / HTML / Word / PDF 报告。
+# 账号只在本机保存一次（首次绑定后打开工作台自动登录）；报告文件可用系统默认应用打开。
+#
+# 版本更新：页面右上角显示当前版本；GitHub 上有新版本时徽标出现红点，
+# 点开后可直接「立即更新」（仅当本机是从 GitHub 安装时可用），更新后重启 Harness 生效。
+#
+# 配置项（全部可省略）：
+#   defaultSchool    首次使用时的默认学校子域名，默认 lyyz（https://lyyz.fuulea.com）
+#   bindingsFile     学校绑定存储路径，默认 ~/.fuulea-report/bindings.json
+#   credentialsFile  兼容旧账号密码文件（格式「别名|账号|密码」），默认读取本机技能包凭据
+#   outputDir        报告输出目录，默认 <用户主目录>/辅立码课数据报告
+#   chromePath       用于 HTML→PDF 的 Chrome 可执行文件路径
+#   defaultDays      页面默认统计天数，默认 14
+#   requestTimeoutMs 单次拉取超时，默认 90000
+#   pdfTimeoutMs     PDF 打印超时，默认 45000
+#   repository       更新检查所用 GitHub 仓库，默认 100759/dsh-fuulea-report
+#   checkUpdates     是否联网检查新版本，默认 true（内网环境可设为 false）
+- insert:
+    - id: fuulea-report
+      name: 'dsh-fuulea-report'

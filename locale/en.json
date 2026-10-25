@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Teaching Data Report",
+    "description": "Pull dashboard data from a Fuulea (智慧教学云) school site and generate a detailed multi-grade teaching data report as Markdown, printable HTML, or PDF."
+  }
+}

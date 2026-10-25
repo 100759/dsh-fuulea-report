@@ -1,0 +1,55 @@
+{
+  "name": "dsh-fuulea-report",
+  "version": "1.3.0",
+  "type": "module",
+  "description": "辅立码课（智慧教学云）教学数据报告工作台：学校绑定/切换、免重复登录，从学校站点拉取管理看板数据并生成详细报告（正式版 / 简报版 / 交互版），支持检查更新与一键升级。",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "dsh-plugin",
+    "plugin",
+    "fuulea",
+    "teaching-report",
+    "report"
+  ],
+  "license": "MIT",
+  "author": "付恒 (https://github.com/100759)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/100759/dsh-fuulea-report.git"
+  },
+  "homepage": "https://github.com/100759/dsh-fuulea-report#readme",
+  "bugs": {
+    "url": "https://github.com/100759/dsh-fuulea-report/issues"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./package.json": "./package.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "lib/*.js",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  }
+}
