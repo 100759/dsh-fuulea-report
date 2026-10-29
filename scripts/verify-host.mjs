@@ -179,11 +179,40 @@ const schoolTitle = { value: '' }
     check('生成 Markdown + HTML', files.length === 2 && files.every((file) => fs.existsSync(file.path) && file.bytes > 1000))
     check('文件带可打开地址', files.every((file) => /^\/fuulea-report\/api\/file\?path=/.test(file.url)))
 
+    // PDF 用例：这是曾经在 Windows 上长期失败的路径（chromePath 写死成 macOS 路径、
+    // file:// 拼接非法、非 0 退出码被误判），必须纳入回归。
+    const defaultsPdf = await call('GET', 'defaults')
+    check('defaults.chromeAvailable 反映真实探测结果',
+      typeof defaultsPdf.json.defaults.chromeAvailable === 'boolean',
+      `chromeAvailable=${defaultsPdf.json.defaults.chromeAvailable} chromePath=${defaultsPdf.json.defaults.chromePath || '(未探测到)'}`)
+
+    const withPdf = await call('POST', 'report', { school, from, to, formats: ['markdown', 'html', 'pdf'] })
+    check('POST /report（含 PDF）', withPdf.status === 200 && withPdf.json.ok === true, withPdf.json && withPdf.json.error)
+    const pdfFiles = ((withPdf.json && withPdf.json.files) || []).filter((file) => file.kind === 'pdf')
+    const pdfWarnings = (withPdf.json && withPdf.json.warnings) || []
+    if (defaultsPdf.json.defaults.chromeAvailable) {
+      const pdf = pdfFiles[0]
+      const isRealPdf = !!pdf && fs.existsSync(pdf.path) &&
+        fs.readFileSync(pdf.path).subarray(0, 5).toString() === '%PDF-'
+      check('生成 PDF 且文件头为 %PDF-', isRealPdf,
+        pdf ? `${pdf.path} (${pdf.bytes} 字节)` : `无 PDF；warnings=${JSON.stringify(pdfWarnings)}`)
+    } else {
+      // 本机确实没有 Chromium 系浏览器时，只要求给出明确告警而不是静默失败。
+      check('无浏览器时给出明确告警', pdfFiles.length === 0 && pdfWarnings.some((w) => /PDF/.test(w)),
+        JSON.stringify(pdfWarnings))
+    }
+
     const reports = await call('GET', 'reports')
     check('GET /reports 扫描历史报告', reports.status === 200 && reports.json.reports.length >= 1,
       `${reports.json.reports.length} 份`)
     const bundle = reports.json.reports[0]
-    check('历史报告含文件与目录', bundle.files.length === 2 && fs.existsSync(bundle.dir), bundle.dir)
+    // 同一区间先后跑过「markdown+html」与「markdown+html+pdf」两轮，目录里是后一轮覆盖后的产物，
+    // 因此这里断言「至少含 md/html 两种、且都存在」，不再写死文件个数。
+    const bundleKinds = new Set(bundle.files.map((file) => file.kind))
+    check('历史报告含文件与目录',
+      bundle.files.length >= 2 && bundleKinds.has('markdown') && bundleKinds.has('html') &&
+        bundle.files.every((file) => fs.existsSync(file.path)),
+      `${bundle.dir} | kinds=${[...bundleKinds].join(',')}`)
     check('历史报告更新时间取最新文件时间', Date.now() - Date.parse(bundle.updatedAt) < 10 * 60 * 1000,
       bundle.updatedAt)
 

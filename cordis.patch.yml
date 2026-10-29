@@ -15,7 +15,7 @@
 #   bindingsFile     学校绑定存储路径，默认 ~/.fuulea-report/bindings.json
 #   credentialsFile  兼容旧账号密码文件（格式「别名|账号|密码」），默认读取本机技能包凭据
 #   outputDir        报告输出目录，默认 <用户主目录>/辅立码课数据报告
-#   chromePath       用于 HTML→PDF 的 Chrome 可执行文件路径
+#   chromePath       用于 HTML→PDF 的浏览器路径；留空则自动探测 Chrome/Edge/Chromium/Brave
 #   defaultDays      页面默认统计天数，默认 14
 #   requestTimeoutMs 单次拉取超时，默认 90000
 #   pdfTimeoutMs     PDF 打印超时，默认 45000

@@ -1,5 +1,22 @@
 # 更新日志
 
+## 1.5.1
+
+- **修复 Windows 上 PDF 生成失败**：`chromePath` 原来写死成 macOS 的
+  `/Applications/Google Chrome.app/...`，在 Windows 上必然不存在，PDF 直接报
+  「未找到 Chrome」。现在改为按平台自动探测，Windows 依次找 Chrome（Program Files /
+  Program Files (x86) / LocalAppData）、系统自带 Edge、Brave，macOS 与 Linux 同样有候选清单；
+  自动探测不到时仍可用 `chromePath` 手动指定绝对路径。
+- 修复 `file://` 地址拼接：原代码用 `` `file://${htmlFile}` `` 拼字符串，Windows 路径会变成
+  `file://C:\...`（非法 URL），且含中文/空格的目录不会被百分号编码。改用 `pathToFileURL()`。
+- 修复「时好时坏」：Windows 上 Chrome/Edge 打印成功后仍可能返回非 0 退出码，原代码只认
+  `code === 0`，会把成功的任务判成失败。现在以 PDF 是否真的落盘（>1KB）为准，并轮询等待
+  异步写盘完成。
+- 老版本浏览器不认 `--headless=new` 时自动退回 `--headless` 重试一次（超时不重试）。
+- 生成前先删除同名旧 PDF，避免本次失败却因上次残留文件而被误判为成功。
+- `GET /defaults` 的 `chromeAvailable` 改为实际探测结果，并新增 `chromePath` 字段回显；
+  Windows 上没装 Chrome 但装了 Edge 时不再误报「未检测到 Chrome」。
+
 ## 1.5.0
 
 - **默认不再自动拉取数据**：打开工作台只回填上次的学校与统计区间，点「获取数据」才联网取数；

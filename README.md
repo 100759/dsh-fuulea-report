@@ -117,7 +117,7 @@ murmurhash3_x64_128（见 `lib/murmur3.js`、`lib/api.js`）。
 | `bindingsFile` | `~/.fuulea-report/bindings.json` | 学校绑定存储路径 |
 | `credentialsFile` | `~/.workbuddy/skills/fuulea-teaching-cloud/scripts/.credentials` | 兼容旧凭据文件（`别名\|账号\|密码`） |
 | `outputDir` | `<用户主目录>/辅立码课数据报告` | 报告输出目录（也可用环境变量 `FUULEA_REPORT_DIR`） |
-| `chromePath` | `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` | HTML→PDF 用的浏览器 |
+| `chromePath` | 留空自动探测 | HTML→PDF 用的浏览器可执行文件。留空时按平台依次探测 Chrome / Edge / Chromium / Brave，Windows 上没有 Chrome 也能用系统自带 Edge 出 PDF；自动探测不到时再手动填绝对路径 |
 | `defaultDays` | `14` | 页面默认统计天数（截止到昨天） |
 | `requestTimeoutMs` | `90000` | 单次接口超时 |
 | `pdfTimeoutMs` | `45000` | PDF 打印超时 |

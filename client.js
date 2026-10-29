@@ -2105,7 +2105,8 @@ window.__ModuleLoader__.load({
           h(
             'p',
             { className: 'flr-hint', key: 'chrome' },
-            '未检测到本机 Chrome：生成 PDF 可能失败，报告仍会输出 Markdown 与可打印 HTML。',
+            '未检测到 Chrome / Edge 等 Chromium 浏览器：生成 PDF 可能失败，报告仍会输出 Markdown 与可打印 HTML。'
+              + 'Windows 通常自带 Edge 即可出 PDF；若仍失败，可在配置里用 chromePath 指定浏览器可执行文件路径。',
           ),
         )
       }

@@ -12,7 +12,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { spawn } from 'node:child_process'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { FuuleaApi, resolveBaseUrl, readCredentialsFile, DEFAULT_CREDENTIALS_FILE } from './lib/api.js'
 import { fetchSnapshot, daysInclusive } from './lib/data.js'
 import { BindingStore, DEFAULT_BINDINGS_FILE, aliasOf, isValidAlias, mask } from './lib/bindings.js'
@@ -37,12 +37,79 @@ const ROUTE_PREFIX = '/fuulea-report/api'
 const SNAPSHOT_TTL_MS = 10 * 60 * 1000
 const MAX_CACHED_CLIENTS = 24
 
+// ---------------------------------------------------------------- 浏览器探测
+//
+// HTML→PDF 依赖 Chromium 系浏览器的 --headless --print-to-pdf。
+// 各平台安装路径不同，且同一台机器可能只装了 Edge（Windows 自带），
+// 所以这里按平台给出候选清单，逐个探测存在的第一个。
+const BROWSER_CANDIDATES = {
+  darwin: [
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+    '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+    `${os.homedir()}/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`,
+  ],
+  win32: [
+    // 优先用环境变量，避免 %ProgramFiles(x86)% 在 32 位进程里被重定向。
+    // LOCALAPPDATA 可能为空（服务账号/精简环境），此时拼出来是相对路径，必须跳过。
+    ...[
+      process.env.PROGRAMFILES || 'C:\\Program Files',
+      process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)',
+      process.env.LOCALAPPDATA || '',
+    ].flatMap((base) => (base
+      ? [
+        path.win32.join(base, 'Google\\Chrome\\Application\\chrome.exe'),
+        path.win32.join(base, 'Microsoft\\Edge\\Application\\msedge.exe'),
+        path.win32.join(base, 'BraveSoftware\\Brave-Browser\\Application\\brave.exe'),
+      ]
+      : [])),
+  ],
+  linux: [
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/microsoft-edge',
+    '/snap/bin/chromium',
+    '/usr/bin/brave-browser',
+  ],
+}
+
+/**
+ * 把本地路径转成 Chromium 命令行参数里可直接用的形式。
+ * Windows 反斜杠在部分 --flag= 解析路径下会被当作转义，统一成正斜杠更稳；
+ * 其余平台原样返回。
+ */
+function toFlagPath(filePath) {
+  return process.platform === 'win32' ? filePath.replace(/\\/g, '/') : filePath
+}
+
+/**
+ * 解析实际要用的浏览器可执行文件。
+ * 配置了 chromePath 且存在 → 用它；否则按平台候选清单探测第一个存在的。
+ * @returns {string} 可执行文件绝对路径；一个都找不到时返回空串。
+ */
+function resolveBrowserPath(configured) {
+  if (configured && fs.existsSync(configured)) return configured
+  const list = BROWSER_CANDIDATES[process.platform] || BROWSER_CANDIDATES.linux
+  for (const candidate of list) {
+    if (!candidate) continue
+    try {
+      if (fs.existsSync(candidate)) return candidate
+    } catch { /* 无权限等，跳过 */ }
+  }
+  return ''
+}
+
 const DEFAULT_CONFIG = {
   defaultSchool: 'lyyz',
   credentialsFile: DEFAULT_CREDENTIALS_FILE,
   bindingsFile: DEFAULT_BINDINGS_FILE,
   outputDir: '',
-  chromePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  // 留空表示「自动探测」：按平台依次找 Chrome / Edge / Chromium / Brave。
+  // 旧版本在这里写死了 macOS 的 Chrome 路径，Windows 上必然不存在，导致 PDF 永远失败。
+  chromePath: '',
   defaultDays: 14,
   requestTimeoutMs: 90_000,
   pdfTimeoutMs: 45_000,
@@ -140,7 +207,10 @@ const ROUTES = {
         ...defaultWindow(state.config.defaultDays),
         lastRange: state.bindings.lastRange(),
         outputDir: state.outputRoot(),
-        chromeAvailable: fs.existsSync(state.config.chromePath),
+        // 用实际探测结果，而不是只比对配置里那个路径：Windows 上默认配置为空，
+        // 但本机装了 Edge 也能出 PDF，不能误报「未检测到 Chrome」。
+        chromeAvailable: Boolean(resolveBrowserPath(state.config.chromePath)),
+        chromePath: resolveBrowserPath(state.config.chromePath),
         credentialsFile: state.config.credentialsFile,
         credentialsFileExists: fs.existsSync(state.config.credentialsFile),
         bindingsFile: state.bindings.file,
@@ -883,50 +953,117 @@ function listReports(state) {
   return bundles.slice(0, 30)
 }
 
-function renderPdf(state, htmlFile, pdfFile) {
-  return new Promise((resolve, reject) => {
-    const chrome = state.config.chromePath
-    if (!chrome || !fs.existsSync(chrome)) {
-      reject(new Error('未找到 Chrome（请配置 chromePath）'))
+/**
+ * 生成 PDF。Chromium 的 --print-to-pdf 在不同版本上表现不一致：
+ *   - 老版本 Chrome（<112）与部分 Edge 不认 --headless=new，只认 --headless；
+ *   - 打印成功也可能返回非 0 退出码。
+ * 所以这里以「产物是否落盘」为准，并在失败时换一种无头模式重试一次。
+ */
+async function renderPdf(state, htmlFile, pdfFile) {
+  const browser = resolveBrowserPath(state.config.chromePath)
+  if (!browser) {
+    throw new Error('未找到 Chrome / Edge 等 Chromium 浏览器（可在配置里用 chromePath 指定可执行文件路径）')
+  }
+  const modes = ['--headless=new', '--headless']
+  let lastError = null
+  for (const headless of modes) {
+    try {
+      await runPdfOnce(state, browser, headless, htmlFile, pdfFile)
       return
+    } catch (e) {
+      lastError = e
+      // 超时不重试（重试只会再等一个完整超时），其余情况换模式再来一次。
+      if (/超时/.test(e.message)) break
     }
+  }
+  throw lastError || new Error('PDF 生成失败')
+}
+
+function runPdfOnce(state, browser, headlessFlag, htmlFile, pdfFile) {
+  return new Promise((resolve, reject) => {
     const profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fuulea-report-chrome-'))
+    // 先删掉旧产物：否则本次打印失败时，上一次的 PDF 还躺在那里，
+    // 会被下面的「文件是否存在」判定误认为本次成功（报告内容对不上）。
+    try { fs.rmSync(pdfFile, { force: true }) } catch { /* 忽略 */ }
     const args = [
-      '--headless=new',
+      headlessFlag,
       '--no-sandbox',
       '--disable-gpu',
       '--disable-crash-reporter',
       '--no-first-run',
       '--no-pdf-header-footer',
-      `--user-data-dir=${profileDir}`,
-      `--print-to-pdf=${pdfFile}`,
+      // Windows 上用户目录可能含中文或空格，Chromium 解析 --flag=值 时要求是合法 URL/路径，
+      // 这里统一用正斜杠并去掉多余引号，避免路径被截断。
+      `--user-data-dir=${toFlagPath(profileDir)}`,
+      `--print-to-pdf=${toFlagPath(pdfFile)}`,
       '--virtual-time-budget=10000',
-      `file://${htmlFile}`,
+      // file:// 不能靠字符串拼接：Windows 是 C:\a\b，拼出来会是 file://C:\a\b（非法）。
+      pathToFileURL(htmlFile).href,
     ]
     let child
     try {
-      child = spawn(chrome, args, { stdio: 'ignore' })
+      child = spawn(browser, args, { stdio: 'ignore' })
     } catch (e) {
       reject(e)
       return
     }
     state.pdfJobs.add(child)
+    const cleanup = () => {
+      try { fs.rmSync(profileDir, { recursive: true, force: true }) } catch { /* 忽略 */ }
+    }
     const timer = setTimeout(() => {
       try { child.kill('SIGKILL') } catch { /* 已退出 */ }
+      state.pdfJobs.delete(child)
+      cleanup()
       reject(new Error('PDF 生成超时'))
     }, state.config.pdfTimeoutMs)
     child.on('error', (e) => {
       clearTimeout(timer)
       state.pdfJobs.delete(child)
+      cleanup()
       reject(e)
     })
     child.on('exit', (code) => {
       clearTimeout(timer)
       state.pdfJobs.delete(child)
-      try { fs.rmSync(profileDir, { recursive: true, force: true }) } catch { /* 忽略 */ }
-      if (code === 0 && fs.existsSync(pdfFile) && fs.statSync(pdfFile).size > 1000) resolve()
-      else reject(new Error(`Chrome 退出码 ${code}`))
+      // 以「产物是否真的写出来了」为准，而不是只看退出码：
+      // Windows 上 Chrome/Edge 打印成功后仍可能返回非 0（0x1 / 21 / 0xC0000005 等），
+      // 只判 code===0 会把这批本来成功的任务全部报成失败——这正是「时好时坏」的来源。
+      // 文件可能是异步落盘的，这里轮询等待一小会儿再下结论。
+      waitForPdf(pdfFile, 3000).then((size) => {
+        cleanup()
+        if (size > 1000) resolve()
+        else if (code === 0) reject(new Error('浏览器已退出但未生成 PDF 文件'))
+        else reject(new Error(`浏览器退出码 ${code}，且未生成 PDF 文件`))
+      })
     })
+  })
+}
+
+/**
+ * 轮询等待 PDF 落盘并稳定下来。
+ * 返回最终字节数；超时仍拿不到就返回 0（或已观察到的大小）。
+ */
+function waitForPdf(pdfFile, timeoutMs) {
+  const deadline = Date.now() + timeoutMs
+  return new Promise((resolve) => {
+    const tick = () => {
+      let size = 0
+      try {
+        size = fs.statSync(pdfFile).size
+      } catch { /* 还没生成 */ }
+      // >1000 视为有效 PDF（空壳/错误页通常只有几百字节）
+      if (size > 1000) {
+        resolve(size)
+        return
+      }
+      if (Date.now() >= deadline) {
+        resolve(size)
+        return
+      }
+      setTimeout(tick, 100)
+    }
+    tick()
   })
 }
 
