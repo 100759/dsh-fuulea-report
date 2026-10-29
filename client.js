@@ -600,7 +600,17 @@ window.__ModuleLoader__.load({
         registry: 'npm 安装',
         unknown: '安装方式未知',
       }[info.source] || '安装方式未知'
-      const canUpdate = hasNew && info.source === 'github' && !status.busy
+      // canUpdate 以 Host 的判断为准（Host 认 github: / git+https:// / https://github.com/ 等写法）；
+      // 老版本 Host 没下发 canUpdate 时退回旧逻辑。
+      const canUpdate = hasNew && (info.canUpdate !== undefined
+        ? info.canUpdate === true
+        : info.source === 'github') && !status.busy
+      // 有新版本但装不了：必须给可见提示，否则按钮变灰用户完全不知道为什么。
+      const blockedReason = hasNew && !canUpdate && !status.busy
+        ? (info.updateBlockedReason || (info.source === 'link'
+          ? '当前是本地目录（link）安装，无法一键更新：请直接修改源码目录，或改从 GitHub 安装'
+          : '当前安装方式不支持一键更新：请手动执行 dsh plugin add github:' + (info.repo || '')))
+        : ''
       const restartPending = Boolean(info.restartPending)
       const metaParts = []
       metaParts.push('当前 ' + ((info.current || '—') + ''))
@@ -633,6 +643,14 @@ window.__ModuleLoader__.load({
               )
             : null,
           checkError ? h('p', { className: 'flr-update-meta' }, '检查更新失败：' + checkError) : null,
+          // 无法一键更新时给出可见原因 + 可复制的命令（禁用按钮的 title 不会弹出，光靠 title 用户看不到）。
+          blockedReason
+            ? h(
+                'p',
+                { className: 'flr-update-meta flr-update-blocked' },
+                blockedReason,
+              )
+            : null,
           status.message ? h('p', { className: 'flr-update-meta' }, status.message) : null,
         ),
         h(
@@ -655,10 +673,9 @@ window.__ModuleLoader__.load({
                   type: 'button',
                   className: 'flr-btn flr-btn--primary flr-btn--tiny',
                   disabled: !canUpdate,
-                  title:
-                    info.source === 'github'
-                      ? '从 GitHub 重新安装最新版'
-                      : '当前不是 GitHub 安装，无法一键更新：请重新执行 dsh plugin add github:' + (info.repo || ''),
+                  title: canUpdate
+                    ? '从 GitHub 重新安装最新版'
+                    : (blockedReason || '当前安装方式不支持一键更新'),
                   onClick: props.onUpdate,
                 },
                 status.busy ? '更新中…' : '立即更新',

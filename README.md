@@ -32,6 +32,10 @@ dsh plugin --profile desktop add github:100759/dsh-fuulea-report
   重启前版本面板会显示「已更新到 vX，重启 Harness 后生效」，红点同时消失。
 - 关闭联网检查：在 `cordis.patch.yml` 的 config 里加 `checkUpdates: false`（内网或合规环境）；
   换仓库地址用 `repository: owner/repo`。
+- **哪些安装方式能一键更新**：只要是「指向 GitHub 仓库」的写法都算 GitHub 安装，按钮可点 ——
+  `github:owner/repo`、`git+https://github.com/owner/repo.git`、`https://github.com/owner/repo`、
+  以及 `owner/repo` 简写。`link:` / `file:` 本地目录安装、npm 源安装则不可一键更新，
+  此时版本面板会**直接写明原因**（不再是按钮变灰却没有任何提示）。
 
 ## 功能
 

@@ -187,6 +187,24 @@ export function apply(ctx, rawConfig) {
   })
 }
 
+/**
+ * 「为什么不能一键更新」的人话解释。
+ * 页面会把它显示在版本面板里——只放在 disabled 按钮的 title 上用户根本看不到。
+ */
+function updateBlockedReason(info) {
+  const profile = process.env.DSH_PROFILE || '<profile>'
+  if (info.disabled) return '插件配置里关闭了联网检查（checkUpdates=false），无法检查与自动更新'
+  if (info.source === 'link') {
+    return '当前是本地目录（link）安装，无法一键更新：请直接修改源码目录，或改从 GitHub 安装'
+  }
+  if (info.source === 'registry') {
+    return '当前是从 npm 源安装的，无法从 GitHub 一键更新：请执行 dsh plugin --profile ' + profile +
+      ' add github:' + (info.repo || '')
+  }
+  return '当前安装方式（' + (info.source || 'unknown') + '）不支持一键更新：请手动执行 dsh plugin --profile ' +
+    profile + ' add github:' + (info.repo || '')
+}
+
 // ---------------------------------------------------------------- 路由
 
 const ROUTES = {
@@ -296,6 +314,8 @@ const ROUTES = {
   'GET update-check': async (state, body, url) => {
     const force = Boolean(url && url.searchParams.get('force'))
     const info = await state.versionChecker.check(force)
+    // 能不能一键更新，由 Host 统一判定后下发，避免客户端与 Host 各判一套导致按钮变灰却无解释。
+    const canUpdate = info.source === 'github' && !info.disabled
     return {
       ok: true,
       version: info.installed || VERSION,
@@ -307,6 +327,8 @@ const ROUTES = {
       restartPending: Boolean(info.restartPending),
       source: info.source,
       spec: info.spec,
+      canUpdate,
+      updateBlockedReason: canUpdate ? '' : updateBlockedReason(info),
       disabled: info.disabled,
       checkedAt: info.checkedAt,
       error: info.error,

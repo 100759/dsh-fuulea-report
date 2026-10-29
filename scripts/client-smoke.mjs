@@ -201,6 +201,13 @@ const reportPayload = {
 
 const calls = { snapshot: 0, report: 0, open: [], defaults: 0, reports: 0, unbind: [], updateCheck: 0, update: 0 }
 
+// update-check 的返回可由用例切换：默认「可更新」，另有用例切成「不可更新」验证禁用态。
+const updateStub = {
+  canUpdate: true,
+  updateBlockedReason: '',
+  source: 'github',
+}
+
 async function fakeFetch(url, init) {
   const pathname = String(url)
   const method = (init && init.method) || 'GET'
@@ -239,11 +246,14 @@ async function fakeFetch(url, init) {
       latest: '1.4.0',
       updateAvailable: true,
       restartPending: false,
-      source: 'github',
+      source: updateStub.source,
       spec: 'github:100759/dsh-fuulea-report',
       disabled: false,
       checkedAt: Date.now(),
       error: '',
+      // 与 Host 实际下发字段保持一致：客户端据此决定「立即更新」是否可点。
+      canUpdate: updateStub.canUpdate,
+      updateBlockedReason: updateStub.updateBlockedReason,
     })
   }
   if (pathname.includes('/update')) {
@@ -385,6 +395,15 @@ check('「打开时自动拉取」开关存在且默认关闭', autoFetchBox(tre
 check('版本检查发出（红点数据来源）', calls.updateCheck >= 1, 'update-check 调用 ' + calls.updateCheck + ' 次')
 check('版本徽标显示新版本红点', pageText.includes('v1.3.0') && pageText.includes('可更新'))
 check('升级面板渲染（立即更新 / 检查更新）', pageText.includes('有新版本可用：v1.4.0') && pageText.includes('立即更新') && pageText.includes('检查更新'))
+
+// 「立即更新」的可点性完全由 Host 下发的 canUpdate 决定。
+// 曾因客户端只认 source==='github' 且把原因藏在 title 里，导致按钮变灰却毫无提示。
+{
+  const updateBtn = findButton(tree, '立即更新')
+  check('可更新时「立即更新」按钮存在', updateBtn.length === 1)
+  check('可更新时按钮未禁用', updateBtn.length === 1 && updateBtn[0].props.disabled === false)
+  check('可更新时无阻断提示', !pageText.includes('无法一键更新'))
+}
 check('拉取默认值与历史报告', calls.defaults === 1 && calls.reports >= 1)
 check('历史报告区块渲染', pageText.includes('历史报告') && pageText.includes('打开 PDF'))
 check('绑定时长提示（本机保存账号）', pageText.includes('账号只保存在本机'))
@@ -476,6 +495,27 @@ try {
   check('二次渲染稳定', true)
 } catch (err) {
   check('二次渲染稳定', false, err && err.message)
+}
+
+// ---- 「不可一键更新」时的禁用态：必须给出可见原因，而不是让按钮默默变灰
+{
+  updateStub.canUpdate = false
+  updateStub.updateBlockedReason =
+    '当前是本地目录（link）安装，无法一键更新：请直接修改源码目录，或改从 GitHub 安装'
+  updateStub.source = 'link'
+  // 点一次「检查更新」让页面重新取 update-check
+  const checkBtn = findButton(treeRef.current, '检查更新')
+  if (checkBtn.length === 1) {
+    checkBtn[0].props.onClick({ preventDefault() {} })
+    await renderUntilStable()
+  }
+  const tree2 = treeRef.current
+  const text2 = textOf(tree2)
+  const disabledBtn = findButton(tree2, '立即更新')
+  check('不可更新时按钮仍渲染', disabledBtn.length === 1)
+  check('不可更新时按钮被禁用', disabledBtn.length === 1 && disabledBtn[0].props.disabled === true)
+  check('不可更新时页面显示可见原因', text2.includes('无法一键更新'),
+    disabledBtn.length === 1 ? String(disabledBtn[0].props.title) : '(无按钮)')
 }
 
 console.log('')

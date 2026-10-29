@@ -244,6 +244,64 @@ const schoolTitle = { value: '' }
   }
 }
 
+// ---------------------------------------------------------------- 安装源识别
+// 「立即更新」按钮变灰的根因：只认 github: 前缀，用 git+https:// 安装的用户被判成 git。
+// 这里把各种 GitHub 写法都钉住，防止回归。
+{
+  const { detectInstallSource, parseGithubRepo } = await import('../lib/updater.js')
+
+  const githubSpecs = [
+    'github:100759/dsh-fuulea-report',
+    'github:100759/dsh-fuulea-report#main',
+    'git+https://github.com/100759/dsh-fuulea-report.git',
+    'git+https://github.com/100759/dsh-fuulea-report.git#main',
+    'https://github.com/100759/dsh-fuulea-report',
+    'https://github.com/100759/dsh-fuulea-report.git',
+    'git+ssh://git@github.com/100759/dsh-fuulea-report.git',
+    '100759/dsh-fuulea-report',
+  ]
+  for (const spec of githubSpecs) {
+    check(`识别为 GitHub 安装：${spec}`, parseGithubRepo(spec) === '100759/dsh-fuulea-report',
+      `实际 ${JSON.stringify(parseGithubRepo(spec))}`)
+  }
+
+  const nonGithub = ['1.5.0', 'link:/a/b', 'file:../x', 'workspace:*', 'git+https://gitlab.com/a/b.git']
+  for (const spec of nonGithub) {
+    check(`不误判为 GitHub：${spec}`, parseGithubRepo(spec) === '', `实际 ${JSON.stringify(parseGithubRepo(spec))}`)
+  }
+
+  // 落到 profile 里的实际依赖写法 → source 判定
+  const probeDir = path.join(tmp, 'profile-probe')
+  const cases = [
+    ['github:100759/dsh-fuulea-report', 'github'],
+    ['git+https://github.com/100759/dsh-fuulea-report.git', 'github'],
+    ['https://github.com/100759/dsh-fuulea-report', 'github'],
+    ['link:/tmp/plugin', 'link'],
+    ['1.5.0', 'registry'],
+    ['git+https://gitlab.com/a/b.git', 'git'],
+  ]
+  for (const [spec, expect] of cases) {
+    fs.mkdirSync(probeDir, { recursive: true })
+    fs.writeFileSync(path.join(probeDir, 'package.json'),
+      JSON.stringify({ dependencies: { 'dsh-fuulea-report': spec } }), 'utf8')
+    const got = detectInstallSource(probeDir, 'dsh-fuulea-report')
+    check(`安装源判定 ${spec} → ${expect}`, got.source === expect, `实际 ${got.source}`)
+  }
+  fs.rmSync(probeDir, { recursive: true, force: true })
+
+  // update-check 必须下发 canUpdate，客户端据此决定按钮是否可点。
+  const updateInfo = await call('GET', 'update-check')
+  const d = (updateInfo.json && updateInfo.json) || {}
+  check('update-check 下发 canUpdate', typeof d.canUpdate === 'boolean',
+    `canUpdate=${d.canUpdate} source=${d.source}`)
+  check('update-check 下发 updateBlockedReason', typeof d.updateBlockedReason === 'string',
+    JSON.stringify(d.updateBlockedReason))
+  check('canUpdate 与 source 一致', d.canUpdate === (d.source === 'github'),
+    `canUpdate=${d.canUpdate} source=${d.source}`)
+  check('不可更新时给出可读原因', d.canUpdate === true || d.updateBlockedReason.length > 0,
+    JSON.stringify(d.updateBlockedReason))
+}
+
 console.log('')
 console.log(failures === 0 ? '全部用例通过' : `${failures} 个用例失败`)
 console.log('临时目录：' + tmp)

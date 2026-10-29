@@ -1,5 +1,26 @@
 # 更新日志
 
+## 1.5.2
+
+- **修复「立即更新」按钮变灰点不动**：判定只认 `github:` 前缀，用
+  `git+https://github.com/...` 或 `https://github.com/...` 安装的用户被判成 `git`，
+  按钮直接禁用。现在只要是「指向 GitHub 仓库」的写法都算 GitHub 安装
+  （`github:` / `git+https://` / `https://github.com/` / `git+ssh://` / `owner/repo` 简写），
+  由新增的 `parseGithubRepo()` 统一解析 owner/repo。
+- 修复「变灰但不说原因」：原来禁用原因只写在按钮 `title` 上，而禁用按钮的 tooltip
+  根本不会弹出。现在 `GET /update-check` 下发 `canUpdate` 与 `updateBlockedReason`，
+  版本面板把原因作为正文直接显示，并给出可复制的 `dsh plugin add github:...` 命令。
+- 客户端改为信任 Host 下发的 `canUpdate`，不再自己判断 `source === 'github'`
+  （两边各判一套正是这次问题的来源）。
+- 修复 Windows 上一键更新必定失败：`pnpm` 是 `.cmd` 批处理，Node 18+ 不再隐式套 shell，
+  直接 `spawn` 会以 `EINVAL` 失败。现在 Windows 上显式 `shell: true` 并对含空格的
+  路径（`C:\Program Files`、中文用户名）做引号化。
+- `findPnpm()` 补齐 Windows 查找位置（`%APPDATA%\npm`、`%LOCALAPPDATA%\pnpm`、
+  `%ProgramFiles%\nodejs`），并同时尝试 `pnpm.cmd` / `pnpm.exe` / `pnpm.bat`。
+- 自测：`verify-host.mjs` 新增 8 种 GitHub 写法识别 + 5 种非 GitHub 写法不误判 +
+  6 条安装源判定 + 4 条 update-check 字段校验；`client-smoke.mjs` 新增可更新/不可更新
+  两种状态下的按钮禁用与提示可见性断言。
+
 ## 1.5.1
 
 - **修复 Windows 上 PDF 生成失败**：`chromePath` 原来写死成 macOS 的
